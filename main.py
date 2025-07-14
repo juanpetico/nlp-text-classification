@@ -11,7 +11,7 @@ dataset = load_dataset("Nicky0007/titulos_noticias_rcn_clasificadas")
 
 # 2. Mapear categorías a valores numéricos
 categories = sorted(set(dataset["train"]["label"]))
-categoriesIdx = {nombre: idx for idx, nombre in enumerate(categories)}
+categoriesIdx = {name: idx for idx, name in enumerate(categories)}
 
 def convertLabel(example):
     example["label"] = categoriesIdx[example["label"]]
