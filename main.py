@@ -9,18 +9,19 @@ from keras.callbacks import EarlyStopping
 # 1. Cargar dataset
 dataset = load_dataset("Nicky0007/titulos_noticias_rcn_clasificadas")
 
-categorias = sorted(set(dataset["train"]["label"]))
-categoria_to_index = {nombre: idx for idx, nombre in enumerate(categorias)}
+# 2. Mapear categorías a valores numéricos
+categories = sorted(set(dataset["train"]["label"]))
+categoriesIdx = {nombre: idx for idx, nombre in enumerate(categories)}
 
-def convertir_label(ejemplo):
-    ejemplo["label"] = categoria_to_index[ejemplo["label"]]
-    return ejemplo
+def convertLabel(example):
+    example["label"] = categoriesIdx[example["label"]]
+    return example
 
-dataset = dataset.map(convertir_label)
+dataset = dataset.map(convertLabel)
 
-# 2. Tokenizar
-modelo_id = "dccuchile/bert-base-spanish-wwm-uncased"
-tokenizer = AutoTokenizer.from_pretrained(modelo_id)
+# 3. Tokenizar
+model_id = "dccuchile/bert-base-spanish-wwm-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 def tokenize(example):
     return tokenizer(
@@ -33,7 +34,7 @@ def tokenize(example):
 tokenized = dataset.map(tokenize)
 tokenized.set_format("tensorflow", columns=["input_ids", "attention_mask", "label"])
 
-# 3. Convertir a tensores de TF
+# 4. Convertir a tensores de TF
 def to_tf_dataset(ds):
     input_ids = np.array([x.numpy() if hasattr(x, 'numpy') else x for x in ds["input_ids"]])
     attention_mask = np.array([x.numpy() if hasattr(x, 'numpy') else x for x in ds["attention_mask"]])
@@ -48,13 +49,13 @@ def to_tf_dataset(ds):
     )).shuffle(500).batch(16)
 
 train_ds = to_tf_dataset(tokenized["train"])
-val_ds = to_tf_dataset(tokenized["test"])
+test_ds = to_tf_dataset(tokenized["test"])
 
-# 4. Cargar modelo en TensorFlow
+# 5. Cargar modelo en TensorFlow
 num_labels = len(set(dataset["train"]["label"]))
-model = TFAutoModelForSequenceClassification.from_pretrained(modelo_id, num_labels=num_labels)
+model = TFAutoModelForSequenceClassification.from_pretrained(model_id, num_labels=num_labels)
 
-# 5. Compilar modelo
+# 6. Compilar modelo
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=5e-5),
     loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -62,15 +63,15 @@ model.compile(
 )
 
 early_stop = EarlyStopping(
-    monitor='val_loss',     # métrica que se evalúa para detener
-    patience=2,             # número de épocas sin mejora antes de parar
-    restore_best_weights=True,  # restaura los pesos con mejor val_loss
+    monitor='val_loss',     
+    patience=2,             
+    restore_best_weights=True,  
     verbose=1
 )
 
-# 6. Entrenar modelo
-model.fit(train_ds, validation_data=val_ds, epochs=5)
+# 7. Entrenar modelo
+model.fit(train_ds, validation_data=test_ds, epochs=5)
 
-# 7. Guardar modelo
+# 8. Guardar modelo
 model.save_pretrained("beto_noticias_tf")
 tokenizer.save_pretrained("beto_noticias_tf")
